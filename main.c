@@ -75,7 +75,6 @@ void close_input_buffer(InputBuffer* input_buffer) {
 
 // MetaCommandResult is just int (either 0 or 1) and that's what this function returns
 MetaCommandResult do_meta_command(InputBuffer* input_buffer) {
-	printf("%s\n", input_buffer->buffer );
 	if(strcmp(input_buffer->buffer, ".exit") == 0) {
 		close_input_buffer(input_buffer);
 		exit(EXIT_SUCCESS);
@@ -121,20 +120,20 @@ int main( int argc, char* argv[] ) {
 	while(1) {
 		print_prompt(); // sqlite3 one 
 		read_input(input_buffer); 
-		
-		if(strcmp(input_buffer->buffer , ".exit")==0){
-			// Non-SQL statements like ".exit" are called meta-commands
-			if(input_buffer->buffer[0] == ".") {
-				switch(do_meta_command(input_buffer)) {
-					case(META_COMMAND_SUCCESS):
-						continue;
-					case(META_COMMAND_UNRECOGNIZED):
-						printf("Unrecognized command %s\n", input_buffer->buffer);
-						continue;
-				}
-			}			
-		}
-		
+
+		// Non-SQL statements like ".exit" are called meta-commands
+		// In ASCII, "." == 46
+		if(input_buffer->buffer[0] == 46) {
+			switch(do_meta_command(input_buffer)) {
+				case(META_COMMAND_SUCCESS):
+					printf("%s\n", input_buffer->buffer);
+					break;
+				case(META_COMMAND_UNRECOGNIZED):
+					printf("66Unrecognized command %s\n", input_buffer->buffer);
+					continue;
+			}
+		}			
+	
 		Statement statement; //wtf?
 		// what are we preparing it for?
 		switch(prepare_statement(input_buffer, &statement)) {
