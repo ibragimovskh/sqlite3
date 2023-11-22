@@ -54,4 +54,7 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3eef204 (Meta-command + .gitignore update on PC)
