@@ -2,15 +2,18 @@
 #include <stdlib.h> 
 #include <string.h>
 
+
+#define COLUMN_USERNAME_SIZE 32 
+#define COLUMN_EMAIL_SIZE 255
+
 /*
 
     TODO: 
 	1. Why use pointer for Statement? 
 	2. Why "&" in execute_statement(&statement)?
-	3. Educate on **pointers (getline)
-	4. Get .vimrc from desktop
-	5. execute_statement( Statement* statement );
- 
+ 	3. Define limits for table inputs (varchar25, 225, and int)
+	4. Handle the input from the user, implement table structure(row, column)  
+
     sqlitef front-end: 
 	SQL compiler (input:string, output:bytecode)	
 	or just, we need to parse sql syntax and return data
@@ -43,8 +46,16 @@ typedef enum {
 typedef enum { STATEMENT_INSERT, STATEMENT_SELECT } StatementType;
 
 typedef struct {
-	StatementType type; // don't really understand this line
-} Statement; 
+	uint32_t id; 
+	char username[COLUMN_USERNAME_SIZE];
+	char email[COLUMN_EMAIL_SIZE];
+} Row;
+
+typedef struct {
+	StatementType type; // either 0 or 1 (used later in switch statement)
+	Row row_to_insert; // only used by insert statement
+} Statement; 	
+
 
 InputBuffer* new_input_buffer() {
 	// (InputBuffer*) for code-readability and error detection
@@ -129,7 +140,7 @@ int main( int argc, char* argv[] ) {
 					printf("%s\n", input_buffer->buffer);
 					break;
 				case(META_COMMAND_UNRECOGNIZED):
-					printf("66Unrecognized command %s\n", input_buffer->buffer);
+					printf("Unrecognized command %s\n", input_buffer->buffer);
 					continue;
 			}
 		}			
