@@ -5,9 +5,21 @@
 
 #define COLUMN_USERNAME_SIZE 32 
 #define COLUMN_EMAIL_SIZE 255
+/*
+	Very Important! Struct* is just saying that it is a pointer, it's not dereferencing anything 
+	The line below is a syntax trick we can use to figure out the size of an Attribute without initiating an instance of Struct
+*/
+#define size_of_attribute(Struct, Attribute) sizeof(((Struct*)0)->Attribute);
+
+const uint32_t ID_SIZE = size_of_attribute(Row, id);
+const uint32_t USERNAME_SIZE = size_of_attribute(Row, username);
+const uint32_t EMAIL_SIZE = size_of_attribute(Row, email); 
+const uint32_t ID_OFFSET = 0; 
+const uint32_t USERNAME_OFFSET = ID_SIZE + ID_OFFSET;
+const uint32_t EMAIL_OFFSET = USERNAME_SIZE + USERNAME_OFFSET;
+const uint32_t ROW_OFFSET = ID_SIZE + USERNAME_SIZE + EMAIL_SIZE;
 
 /*
-
     TODO: 
 	1. Why use pointer for Statement? 
 	2. Why "&" in execute_statement(&statement)?
@@ -55,6 +67,7 @@ typedef struct {
 	StatementType type; // either 0 or 1 (used later in switch statement)
 	Row row_to_insert; // only used by insert statement
 } Statement; 	
+
 
 
 InputBuffer* new_input_buffer() {
