@@ -2,14 +2,13 @@
 #include <stdlib.h> 
 #include <string.h>
 
-
-#define COLUMN_USERNAME_SIZE 32 
-#define COLUMN_EMAIL_SIZE 255
 /*
 	Very Important! Struct* is just saying that it is a pointer, it's not dereferencing anything 
-	The line below is a syntax trick we can use to figure out the size of an Attribute without initiating an instance of Struct
+	line below is a syntax trick we can use to figure out the size of an Attribute without initiating an instance of Struct
 */
 #define size_of_attribute(Struct, Attribute) sizeof(((Struct*)0)->Attribute);
+#define COLUMN_USERNAME_SIZE 32 
+#define COLUMN_EMAIL_SIZE 255
 
 const uint32_t ID_SIZE = size_of_attribute(Row, id);
 const uint32_t USERNAME_SIZE = size_of_attribute(Row, username);
@@ -21,8 +20,10 @@ const uint32_t ROW_OFFSET = ID_SIZE + USERNAME_SIZE + EMAIL_SIZE;
 
 /*
     TODO: 
-	1. Why use pointer for Statement? 
+	1. serialize_row()
+	 - Serialization - converting data strcture into format that can be stored or transmitted (bytecode)
 	2. Why "&" in execute_statement(&statement)?
+	 - Because, that's how you modify the instance, and not the copy of it (copy isn't saved outside of function)
  	3. Define limits for table inputs (varchar25, 225, and int)
 	4. Handle the input from the user, implement table structure(row, column)  
 
@@ -167,6 +168,7 @@ int main( int argc, char* argv[] ) {
 				printf("Unrecognized command %s\n", input_buffer->buffer);
 				continue; // I guess prompt will just keep running
 		}
+		// so statement->type is the same as (*statement).type, you have direct access
 		execute_statement(&statement);
 		printf("Executed.\n");
 	}	
