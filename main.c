@@ -42,7 +42,8 @@ typedef enum {
 
 typedef enum {
 	PREPARE_SUCCESS, 
-	PREPARE_FAILURE
+	PREPARE_SYNTAX_ERROR,
+	PREPARE_UNRECOGNIZED_COMMAND
 } PrepareResult;
 
 typedef enum { STATEMENT_INSERT, STATEMENT_SELECT } StatementType;
@@ -174,7 +175,7 @@ PrepareResult prepare_statement(InputBuffer* input_buffer, Statement* statement)
 		statement -> type = STATEMENT_SELECT;
 		return PREPARE_SUCCESS;
 	}
-	return PREPARE_FAILURE;
+	return PREPARE_SYNTAX_ERROR;
 }; 
 
 ExecuteResult execute_insert(Statement* statement, Table* table ) {
@@ -189,7 +190,7 @@ ExecuteResult execute_insert(Statement* statement, Table* table ) {
 
 	*/
 	Row* row_to_insert = &(statement->row_to_insert);
-	serialize_data(row_to_insert, row_slot(table, table->num_rows));
+	serialize_row(row_to_insert, row_slot(table, table->num_rows));
 	table->num_rows += 1;
 
 	return EXECUTE_SUCCESS;
@@ -203,14 +204,14 @@ ExecuteResult execute_select(Statement* statement, Table* table) {
 	Row row; 
 	// this is a lot, but it is beautiful and makes absolute sense
 	for(int i = 0; i < table->num_rows; i++) {
-		deserialize(row_slot(table,i), &row);
+		deserialize_row(row_slot(table,i), &row);
 		print_row(&row); 
 	}
 		
 	return EXECUTE_SUCCESS;	
 }
 
-void execute_statement(Statement* statement, Table* table) {
+ExecuteResult execute_statement(Statement* statement, Table* table) {
 	
 	// need to return the function result, it is used later in main()
 	switch(statement -> type) {
@@ -222,11 +223,11 @@ void execute_statement(Statement* statement, Table* table) {
 };
 
 Table* new_table() {
-	Table* table = (Table*)malloc(sizeof(Table))
+	Table* table = (Table*)malloc(sizeof(Table));
 	table->num_rows = 0; 
 
 	// my assumption was wrong, page wasn't null by default
-	for(int i = 0; i < TABLE_MAX_DEFAULT; i++) {
+	for(int i = 0; i < TABLE_MAX_PAGES; i++) {
 		table->pages[i]=NULL;
 
 	}
@@ -247,7 +248,7 @@ void print_prompt() {printf("db > ");}
 
 
 int main( int argc, char* argv[] ) {
-	
+	Table *table = new_table(); 
 	InputBuffer* input_buffer = new_input_buffer(); 
 	while(1) {
 		print_prompt(); // sqlite3 one 
@@ -270,14 +271,23 @@ int main( int argc, char* argv[] ) {
 		// what are we preparing it for?
 		switch(prepare_statement(input_buffer, &statement)) {
 			case (PREPARE_SUCCESS): 
-				break; 
-			case (PREPARE_FAILURE): 
+				break;
+			case (PREPARE_SYNTAX_ERROR):
+				printf("Syntax error. Could not parse statement.\n");
+				break;
+			case (PREPARE_UNRECOGNIZED_COMMAND): 
 				printf("Unrecognized command %s\n", input_buffer->buffer);
 				continue; // I guess prompt will just keep running
 		}
 		// so statement->type is the same as (*statement).type, you have direct access
-		execute_statement(&statement);
-		printf("Executed.\n");
+		switch(execute_statement(&statement, table)) {
+			case (EXECUTE_SUCCESS):
+				printf("Executed.\n");
+				break;
+			case (EXECUTE_TABLE_FULL):
+				printf("Error: Table Full. \n");
+				break;
+		}
 	}	
 	return 0; 
 }
