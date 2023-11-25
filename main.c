@@ -1,22 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h> 
 #include <string.h>
+#include <stdint.h>
 
-/*
-	Very Important! Struct* is just saying that it is a pointer, it's not dereferencing anything 
-	line below is a syntax trick we can use to figure out the size of an Attribute without initiating an instance of Struct
-*/
-#define size_of_attribute(Struct, Attribute) sizeof(((Struct*)0)->Attribute);
 #define COLUMN_USERNAME_SIZE 32 
 #define COLUMN_EMAIL_SIZE 255
-
-const uint32_t ID_SIZE = size_of_attribute(Row, id);
-const uint32_t USERNAME_SIZE = size_of_attribute(Row, username);
-const uint32_t EMAIL_SIZE = size_of_attribute(Row, email); 
-const uint32_t ID_OFFSET = 0; 
-const uint32_t USERNAME_OFFSET = ID_SIZE + ID_OFFSET;
-const uint32_t EMAIL_OFFSET = USERNAME_SIZE + USERNAME_OFFSET;
-const uint32_t ROW_OFFSET = ID_SIZE + USERNAME_SIZE + EMAIL_SIZE;
+#define TABLE_MAX_PAGES 100 
 
 /*
     TODO: 
@@ -33,7 +22,7 @@ const uint32_t ROW_OFFSET = ID_SIZE + USERNAME_SIZE + EMAIL_SIZE;
 */
 
 // we need two enums: PREPARE and META
-// we need statement (I don't know why we need struct for it tho)
+// we need statement 
 
 // enum just makes program more readable, since in C you don't have false and true
 // instead, you have 0 and 1, so imagine bunch of statements with 0's and 1's in them
@@ -65,11 +54,76 @@ typedef struct {
 } Row;
 
 typedef struct {
+	// why do we need num_rows? 
+	uint32_t num_rows;
+	void* pages[TABLE_MAX_PAGES];
+
+} Table;
+
+typedef struct {
 	StatementType type; // either 0 or 1 (used later in switch statement)
 	Row row_to_insert; // only used by insert statement
 } Statement; 	
 
+typedef enum { EXECUTE_SUCCESS, EXECUTE_TABLE_FULL } ExecuteResult;
 
+/*
+	Very Important! Struct* is just saying that it is a pointer, it's not dereferencing anything 
+	line below is a syntax trick we can use to figure out the size of an Attribute without initiating an instance of Struct
+*/
+#define size_of_attribute(Struct, Attribute) sizeof(((Struct*)0)->Attribute)
+
+const uint32_t ID_SIZE = size_of_attribute(Row, id);
+const uint32_t USERNAME_SIZE = size_of_attribute(Row, username);
+const uint32_t EMAIL_SIZE = size_of_attribute(Row, email); 
+const uint32_t ID_OFFSET = 0; 
+const uint32_t USERNAME_OFFSET = ID_SIZE + ID_OFFSET;
+const uint32_t EMAIL_OFFSET = USERNAME_SIZE + USERNAME_OFFSET;
+const uint32_t ROW_SIZE = ID_SIZE + USERNAME_SIZE + EMAIL_SIZE;
+
+// Table points to the pages of rows
+const uint32_t PAGE_SIZE = 4096;
+const uint32_t ROWS_PER_PAGE = PAGE_SIZE / ROW_SIZE; 
+const uint32_t TABLE_MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES;
+
+// Copying to Table
+void serialize_row(Row *source, void *destination){
+	memcpy( destination + ID_OFFSET, &(source->id), ID_SIZE ); 
+	memcpy( destination + USERNAME_OFFSET, &(source->username), USERNAME_SIZE);
+	memcpy( destination + EMAIL_OFFSET, &(source->email), EMAIL_SIZE );
+}
+// Copying from table 
+void deserialize_row(void* source, Row* destination) {
+	memcpy( &(destination->id), source + ID_OFFSET, ID_SIZE );
+	memcpy( &(destination->username), source + USERNAME_OFFSET, USERNAME_SIZE );
+	memcpy( &(destination->username), source + EMAIL_OFFSET, EMAIL_SIZE);
+}
+
+/*
+ void function doesn't return anything, void* returns a pointer
+ same with row_slot, it doesn't perform operations on table, it just returns a pointer
+ to the page(address) where the operation needs to be performed
+ important detail: even if the page was NULL, after the space is allocated,
+ we still use the row_num and don't just put data in wherever is free
+ e.g.: row_num = 2, page is NULL
+ 	1. allocate memory
+	2. put data into SECOND row, first stays empty
+*/
+void* row_slot(Table* table, uint32_t row_num) {  
+	uint32_t page_num = row_num / ROWS_PER_PAGE; 
+	void* page = table -> pages[page_num]; 
+	if(page == NULL) {
+		// why not just page = malloc(PAGE_SIZE)?
+		// because, it would make page point to the allocated memory(randomly)
+		// and table->pages[page_num] would still be NULL 
+		page = table->pages[page_num] = malloc(PAGE_SIZE); 
+	} 
+	uint32_t row_offset = row_num % ROWS_PER_PAGE;
+	// address still needs offset in bytes
+	uint32_t byte_offset = row_offset * ROW_SIZE;
+
+	return page + byte_offset;
+} 
 
 InputBuffer* new_input_buffer() {
 	// (InputBuffer*) for code-readability and error detection
@@ -123,18 +177,68 @@ PrepareResult prepare_statement(InputBuffer* input_buffer, Statement* statement)
 	return PREPARE_FAILURE;
 }; 
 
-void execute_statement(Statement* statement) {
-	// we could use if statement, but there are too many conditions
-	// so, use switch instead
+ExecuteResult execute_insert(Statement* statement, Table* table ) {
+	if(table->num_rows >= TABLE_MAX_ROWS) {
+		return EXECUTE_TABLE_FULL; 
+	}
+	/*
+		Row* is just a type (pointer to Row), not dereferencer
+		Assigning the addr of rwtoinsrt to row_to_insert
+		There is another way to do it, but that would copy the whole thing to row_to_insert
+		And then get the address to the newly copied data (so that you have the same data stored twice)
+
+	*/
+	Row* row_to_insert = &(statement->row_to_insert);
+	serialize_data(row_to_insert, row_slot(table, table->num_rows));
+	table->num_rows += 1;
+
+	return EXECUTE_SUCCESS;
+} 
+
+void print_row(Row* row) {
+	printf("%d %s %s \n", row->id, row->username, row->email);	
+}
+
+ExecuteResult execute_select(Statement* statement, Table* table) {
+	Row row; 
+	// this is a lot, but it is beautiful and makes absolute sense
+	for(int i = 0; i < table->num_rows; i++) {
+		deserialize(row_slot(table,i), &row);
+		print_row(&row); 
+	}
+		
+	return EXECUTE_SUCCESS;	
+}
+
+void execute_statement(Statement* statement, Table* table) {
+	
+	// need to return the function result, it is used later in main()
 	switch(statement -> type) {
 		case(STATEMENT_INSERT):
-			printf("This could be an insert statement.\n");
-			break;
+			return execute_insert(statement, table);
 		case(STATEMENT_SELECT):
-			printf("This could be a select statement.\n");
-			break;
+			return execute_select(statement, table); 
 	}	
 };
+
+Table* new_table() {
+	Table* table = (Table*)malloc(sizeof(Table))
+	table->num_rows = 0; 
+
+	// my assumption was wrong, page wasn't null by default
+
+	
+} 
+
+// Write deconstructor for table
+void free_table(Table* table) {
+	for(int i = 0; i < table->num_rows; i++) {
+		// free() only works on pointers that were returned my malloc()
+		// in this case, pages[i], since page is a pointer from malloc returned by row_slot
+		free(table->pages[i]);
+	}
+	free(table);
+} 
 
 void print_prompt() {printf("db > ");}
 
