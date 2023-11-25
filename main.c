@@ -226,8 +226,11 @@ Table* new_table() {
 	table->num_rows = 0; 
 
 	// my assumption was wrong, page wasn't null by default
+	for(int i = 0; i < TABLE_MAX_DEFAULT; i++) {
+		table->pages[i]=NULL;
 
-	
+	}
+	return table;
 } 
 
 // Write deconstructor for table
