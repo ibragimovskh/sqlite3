@@ -97,7 +97,7 @@ void serialize_row(Row *source, void *destination){
 void deserialize_row(void* source, Row* destination) {
 	memcpy( &(destination->id), source + ID_OFFSET, ID_SIZE );
 	memcpy( &(destination->username), source + USERNAME_OFFSET, USERNAME_SIZE );
-	memcpy( &(destination->username), source + EMAIL_OFFSET, EMAIL_SIZE);
+	memcpy( &(destination->email), source + EMAIL_OFFSET, EMAIL_SIZE);
 }
 
 /*
@@ -168,6 +168,11 @@ PrepareResult prepare_statement(InputBuffer* input_buffer, Statement* statement)
 	// that's why we only check first 6 characters of the line
 	if(strncmp(input_buffer->buffer, "insert", 6) == 0) {
 		statement -> type = STATEMENT_INSERT;
+		char args_num = sscanf(input_buffer->buffer, "insert %d %s %s", &(statement->row_to_insert.id), &(statement->row_to_insert.username), &(statement->row_to_insert.email));
+		if(args_num < 3) {
+			printf("Insufficient data. Error.\n");
+			return PREPARE_SYNTAX_ERROR;
+		}
 		return PREPARE_SUCCESS;
 	}
 	// but why don't we do the same here?
@@ -197,7 +202,7 @@ ExecuteResult execute_insert(Statement* statement, Table* table ) {
 } 
 
 void print_row(Row* row) {
-	printf("%d %s %s \n", row->id, row->username, row->email);	
+	printf("(%d %s %s)\n", row->id, row->username, row->email);	
 }
 
 ExecuteResult execute_select(Statement* statement, Table* table) {
