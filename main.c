@@ -170,7 +170,6 @@ PrepareResult prepare_statement(InputBuffer* input_buffer, Statement* statement)
 		statement -> type = STATEMENT_INSERT;
 		char args_num = sscanf(input_buffer->buffer, "insert %d %s %s", &(statement->row_to_insert.id), &(statement->row_to_insert.username), &(statement->row_to_insert.email));
 		if(args_num < 3) {
-			printf("Insufficient data. Error.\n");
 			return PREPARE_SYNTAX_ERROR;
 		}
 		return PREPARE_SUCCESS;
@@ -279,7 +278,7 @@ int main( int argc, char* argv[] ) {
 				break;
 			case (PREPARE_SYNTAX_ERROR):
 				printf("Syntax error. Could not parse statement.\n");
-				break;
+				continue;
 			case (PREPARE_UNRECOGNIZED_COMMAND): 
 				printf("Unrecognized command %s\n", input_buffer->buffer);
 				continue; // I guess prompt will just keep running
