@@ -153,10 +153,33 @@ void close_input_buffer(InputBuffer* input_buffer) {
 	free(input_buffer); 
 }
 
+Table* new_table() {
+	Table* table = (Table*)malloc(sizeof(Table));
+	table->num_rows = 0; 
+
+	// my assumption was wrong, page wasn't null by default
+	for(int i = 0; i < TABLE_MAX_PAGES; i++) {
+		table->pages[i]=NULL;
+
+	}
+	return table;
+} 
+
+// Write deconstructor for table
+void free_table(Table* table) {
+	for(int i = 0; i < table->num_rows; i++) {
+		// free() only works on pointers that were returned my malloc()
+		// in this case, pages[i], since page is a pointer from malloc returned by row_slot
+		free(table->pages[i]);
+	}
+	free(table);
+} 
+
 // MetaCommandResult is just int (either 0 or 1) and that's what this function returns
-MetaCommandResult do_meta_command(InputBuffer* input_buffer) {
+MetaCommandResult do_meta_command(InputBuffer* input_buffer, Table* table) {
 	if(strcmp(input_buffer->buffer, ".exit") == 0) {
 		close_input_buffer(input_buffer);
+		free_table(table);
 		exit(EXIT_SUCCESS);
 	} else {
 		return META_COMMAND_UNRECOGNIZED;
@@ -179,7 +202,7 @@ PrepareResult prepare_statement(InputBuffer* input_buffer, Statement* statement)
 		statement -> type = STATEMENT_SELECT;
 		return PREPARE_SUCCESS;
 	}
-	return PREPARE_SYNTAX_ERROR;
+	return PREPARE_UNRECOGNIZED_COMMAND;
 }; 
 
 ExecuteResult execute_insert(Statement* statement, Table* table ) {
@@ -226,27 +249,6 @@ ExecuteResult execute_statement(Statement* statement, Table* table) {
 	}	
 };
 
-Table* new_table() {
-	Table* table = (Table*)malloc(sizeof(Table));
-	table->num_rows = 0; 
-
-	// my assumption was wrong, page wasn't null by default
-	for(int i = 0; i < TABLE_MAX_PAGES; i++) {
-		table->pages[i]=NULL;
-
-	}
-	return table;
-} 
-
-// Write deconstructor for table
-void free_table(Table* table) {
-	for(int i = 0; i < table->num_rows; i++) {
-		// free() only works on pointers that were returned my malloc()
-		// in this case, pages[i], since page is a pointer from malloc returned by row_slot
-		free(table->pages[i]);
-	}
-	free(table);
-} 
 
 void print_prompt() {printf("db > ");}
 
@@ -261,7 +263,7 @@ int main( int argc, char* argv[] ) {
 		// Non-SQL statements like ".exit" are called meta-commands
 		// In ASCII, "." == 46
 		if(input_buffer->buffer[0] == 46) {
-			switch(do_meta_command(input_buffer)) {
+			switch(do_meta_command(input_buffer, table)) {
 				case(META_COMMAND_SUCCESS):
 					printf("%s\n", input_buffer->buffer);
 					break;
@@ -289,7 +291,7 @@ int main( int argc, char* argv[] ) {
 				printf("Executed.\n");
 				break;
 			case (EXECUTE_TABLE_FULL):
-				printf("Error: Table Full. \n");
+				printf("Error: Table Full.\n");
 				break;
 		}
 	}	

@@ -44,14 +44,18 @@ def test_insert_and_retrieve():
 	assert "db > " in result
 
 '''
-
 	TODO: 
-		1. What is __name__ == "main"? (python or C?)
-		2. Is there a main function in python3? 
-		3. Install autocomplete for vim (plugin)
-		4. Use pytest, it's more convinient
 '''
 
+def test_table_full_error_message(): 
+	script = [f"insert {i} user{i} person{i}@example.com" for i in range (1,1402)]
+	script.append(".exit")
+
+	result = run_script(script) 
+	result_lines = result.split("\n")
+	print(result_lines)
+	
 # this runs if the script is being run as main program (and not being imported)
 if __name__ == "__main__":
-	test_insert_and_retrieve()
+	test_table_full_error_message() 
+	
