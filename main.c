@@ -201,7 +201,7 @@ ExecuteResult execute_insert(Statement* statement, Table* table ) {
 } 
 
 void print_row(Row* row) {
-	printf("(%d %s %s)\n", row->id, row->username, row->email);	
+	printf("(%d, %s, %s)\n", row->id, row->username, row->email);	
 }
 
 ExecuteResult execute_select(Statement* statement, Table* table) {

@@ -6,12 +6,14 @@ def run_script(commands):
 		"./db",
 		stdin=subprocess.PIPE, # we need to be able to send input(write) to the program 
 		stdout=subprocess.PIPE, # and get output(read) from it
-		stderr=subprocess.PIPE, # as well as errors
+		stderr=subprocess.PIPE, # as well as errors, 
+		text=True
 	)
 	try:
-		input_bytes = "\n".join(commands).encode('utf-8')
+		# input_bytes = "\n".join(commands).encode('utf-8')
 		# Concatenate strings in commands with "\n", we need to hit enter after typing commands and \n = enter
-		output, error = process.communicate(input_bytes)
+		#output, error = process.communicate(input_bytes)
+		output, error = process.communicate(("\n").join(commands))	
 	except UnicodeDecodeError as e:
 		print(f"Unicode decode error: {e}")
 		process = subprocess.Popen(
@@ -19,9 +21,10 @@ def run_script(commands):
 				stdin=subprocess.PIPE,
 				stdout=subprocess.PIPE,
 				stderr=subprocess.PIPE,
+				text=True
 		)
-		output, error = process.communicate(input_bytes,  errors='replace')	
-	output = output.decode('utf-8', errors='replace')
+		output, error = process.communicate(("\n").join(commands),  errors='replace')	
+	#output = output.decode('utf-8', errors='replace')
 	# process_communicate sends the concatenated string to the stdin of a subprocess(./db in our case)
 	return output
 
@@ -30,14 +33,15 @@ def test_insert_and_retrieve():
 	commands = [
 				"insert 1 user1 person1@example.com",
 				"select",
-				".exit",
+				".exitt",
 		]
 	result = run_script(commands)
-	print(result)
+	print(result)	
 	# result is an array of strings, and assert checks if the following condition is met(True) or AssertError(False)
 	assert "db > Executed." in result
 	assert "db > (1, user1, person1@example.com)" in result
-
+	assert "db > Executed." in result 
+	assert "db > " in result
 
 '''
 
