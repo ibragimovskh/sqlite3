@@ -43,15 +43,16 @@ typedef enum {
 typedef enum {
 	PREPARE_SUCCESS, 
 	PREPARE_SYNTAX_ERROR,
-	PREPARE_UNRECOGNIZED_COMMAND
+	PREPARE_UNRECOGNIZED_COMMAND, 
+	PREPARE_STRING_TOO_LONG
 } PrepareResult;
 
 typedef enum { STATEMENT_INSERT, STATEMENT_SELECT } StatementType;
 
 typedef struct {
 	uint32_t id; 
-	char username[COLUMN_USERNAME_SIZE];
-	char email[COLUMN_EMAIL_SIZE];
+	char username[COLUMN_USERNAME_SIZE+1];
+	char email[COLUMN_EMAIL_SIZE+1];
 } Row;
 
 typedef struct {
@@ -144,7 +145,7 @@ void read_input(InputBuffer* input_buffer) {
 	}
 	
 	input_buffer->input_length = bytes_read - 1; // pure input
-	input_buffer->buffer[bytes_read-1] = 0; 
+	input_buffer->buffer[bytes_read-1] = '\0'; 
 
 }
 
@@ -182,8 +183,38 @@ MetaCommandResult do_meta_command(InputBuffer* input_buffer, Table* table) {
 		free_table(table);
 		exit(EXIT_SUCCESS);
 	} else {
+		printf("%s\n", input_buffer->buffer);
 		return META_COMMAND_UNRECOGNIZED;
 	};
+}
+
+PrepareResult prepare_insert(InputBuffer* input_buffer, Statement* statement) {
+	
+	statement->type = STATEMENT_INSERT;
+	
+	// Replace sscanf with strtok
+	// so that even if we drop one of the arguments
+	// insert 1 onlyemail@mail.ru 
+	// mail will be NULL, and function will return NULL
+	char* keyword = strtok(input_buffer->buffer, " ");
+	char* id_string = strtok(NULL, " ");
+	char* username = strtok(NULL, " ");
+	char* email = strtok(NULL, " ");
+	
+	if(keyword == NULL || id_string == NULL || username == NULL || email = NULL) {
+		return PREPARE_SYNTAX_ERROR;
+	}
+	
+	int id = atoi(id_string); 
+	if(strlen(username) > COLUMN_USERNAME_SIZE) {
+		return PREPARE_STRING_TOO_LONG;
+	}
+	if(strlen(email) > COLUMN_EMAIL_SIZE) {
+		return PREPARE_STRING_TOO_LONG;
+	}
+
+	
+
 }
 
 PrepareResult prepare_statement(InputBuffer* input_buffer, Statement* statement) {
@@ -195,6 +226,7 @@ PrepareResult prepare_statement(InputBuffer* input_buffer, Statement* statement)
 		if(args_num < 3) {
 			return PREPARE_SYNTAX_ERROR;
 		}
+		
 		return PREPARE_SUCCESS;
 	}
 	// but why don't we do the same here?
@@ -262,7 +294,7 @@ int main( int argc, char* argv[] ) {
 
 		// Non-SQL statements like ".exit" are called meta-commands
 		// In ASCII, "." == 46
-		if(input_buffer->buffer[0] == 46) {
+		if(input_buffer->buffer[0] == '.') {
 			switch(do_meta_command(input_buffer, table)) {
 				case(META_COMMAND_SUCCESS):
 					printf("%s\n", input_buffer->buffer);
