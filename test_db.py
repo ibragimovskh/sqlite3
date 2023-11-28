@@ -56,19 +56,26 @@ def test_table_full_error_message():
 	
 	assert "db > Error: Table Full." in result_lines[-2]
 
-def insert_string_max_length():
+def test_insert_string_max_length():
 	long_username = "b" * 33
 	long_email = "a" * 256
 	
 	script = [f"insert 1 {long_username} {long_email}", "select", ".exit"]
 	result = run_script(script)
-	print(result)
+	assert "String is too long." in result
 	assert "Executed." in result
-	assert f"db > (1, {long_username}, {long_email})"
-	assert "db > "
+	assert "db > " in result
+
+def test_insert_negative_id(): 
+	script = ["insert -1 user1 person1@example.com","select",".exit"	]	
+	result = run_script(script)
+	assert "ID cannot be negative." in result
+	assert "Executed." in result
+	assert "db > " in result
 
 # this runs if the script is being run as main program (and not being imported)
 if __name__ == "__main__":
 	test_insert_and_retrieve()
-	test_table_full_error_message() 
-	insert_string_max_length()	
+#	test_table_full_error_message() 
+	test_insert_string_max_length()
+	test_insert_negative_id()

@@ -41,10 +41,11 @@ typedef enum {
 } MetaCommandResult; 
 
 typedef enum {
-	PREPARE_SUCCESS, 
+	PREPARE_SUCCESS,
+	PREPARE_NEGATIVE_ID,
+	PREPARE_STRING_TOO_LONG,
 	PREPARE_SYNTAX_ERROR,
-	PREPARE_UNRECOGNIZED_COMMAND, 
-	PREPARE_STRING_TOO_LONG
+	PREPARE_UNRECOGNIZED_COMMAND 
 } PrepareResult;
 
 typedef enum { STATEMENT_INSERT, STATEMENT_SELECT } StatementType;
@@ -201,41 +202,44 @@ PrepareResult prepare_insert(InputBuffer* input_buffer, Statement* statement) {
 	char* username = strtok(NULL, " ");
 	char* email = strtok(NULL, " ");
 	
-	if(keyword == NULL || id_string == NULL || username == NULL || email = NULL) {
+	if(keyword == NULL || id_string == NULL || username == NULL || email == NULL) {
 		return PREPARE_SYNTAX_ERROR;
 	}
 	
-	int id = atoi(id_string); 
+	int id = atoi(id_string);
+	if(id < 0) {
+		return PREPARE_NEGATIVE_ID;	
+	}
 	if(strlen(username) > COLUMN_USERNAME_SIZE) {
 		return PREPARE_STRING_TOO_LONG;
 	}
 	if(strlen(email) > COLUMN_EMAIL_SIZE) {
 		return PREPARE_STRING_TOO_LONG;
 	}
-
 	
+	// so far all string manipulation functions work with pointers (obviously)
+	statement->row_to_insert.id = id; 
+	strcpy(statement->row_to_insert.username, username);
+	strcpy(statement->row_to_insert.email, email);
 
+	return PREPARE_SUCCESS;
 }
 
 PrepareResult prepare_statement(InputBuffer* input_buffer, Statement* statement) {
 	// strncmp is used because after "insert" comes what actually needs to be inserted
 	// that's why we only check first 6 characters of the line
 	if(strncmp(input_buffer->buffer, "insert", 6) == 0) {
-		statement -> type = STATEMENT_INSERT;
-		char args_num = sscanf(input_buffer->buffer, "insert %d %s %s", &(statement->row_to_insert.id), &(statement->row_to_insert.username), &(statement->row_to_insert.email));
-		if(args_num < 3) {
-			return PREPARE_SYNTAX_ERROR;
-		}
-		
-		return PREPARE_SUCCESS;
+		return prepare_insert(input_buffer, statement);
 	}
-	// but why don't we do the same here?
+	// but why don't we do the same here? 
+	// because our select function displays all rows, we haven't implemented id selection yet
 	if(strcmp(input_buffer->buffer, "select") == 0) {
 		statement -> type = STATEMENT_SELECT;
 		return PREPARE_SUCCESS;
 	}
 	return PREPARE_UNRECOGNIZED_COMMAND;
-}; 
+} 
+
 
 ExecuteResult execute_insert(Statement* statement, Table* table ) {
 	if(table->num_rows >= TABLE_MAX_ROWS) {
@@ -277,7 +281,8 @@ ExecuteResult execute_statement(Statement* statement, Table* table) {
 		case(STATEMENT_INSERT):
 			return execute_insert(statement, table);
 		case(STATEMENT_SELECT):
-			return execute_select(statement, table); 
+			return execute_select(statement, table);
+
 	}	
 };
 
@@ -305,11 +310,18 @@ int main( int argc, char* argv[] ) {
 			}
 		}			
 	
-		Statement statement; //wtf?
-		// what are we preparing it for?
+		Statement statement;
+		// what are we preparing it for? for execution, we could do it in one function, but this approach is cleaner
 		switch(prepare_statement(input_buffer, &statement)) {
+			// why break for success and continue for others?
 			case (PREPARE_SUCCESS): 
 				break;
+			case (PREPARE_NEGATIVE_ID):
+				printf("ID cannot be negative.\n");
+				continue;
+			case (PREPARE_STRING_TOO_LONG):
+				printf("String is too long.\n");
+				continue;
 			case (PREPARE_SYNTAX_ERROR):
 				printf("Syntax error. Could not parse statement.\n");
 				continue;
